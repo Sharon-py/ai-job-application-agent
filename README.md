@@ -1,87 +1,186 @@
-# Data Science Project Template
+# AI Job Application Agent
 
-## Overview
+This project is a first version of an AI-assisted job application agent.
 
-This repository is a reusable template for data science projects.
+The goal is to help a candidate organize a job search by analyzing job offers, ranking them according to a personalized profile, and generating tailored application messages.
 
-It provides a clean structure for organizing data, notebooks, source code, models, results, and reports.
+## Project idea
 
-## Project Structure
+Searching for a job often involves reading many job descriptions, comparing them manually, and deciding which ones are worth applying to first.
+
+This project proposes a simple decision-support pipeline that:
+
+1. loads job offers from a CSV file,
+2. scores each offer according to a target profile,
+3. explains why an offer is relevant,
+4. recommends the next action,
+5. generates a first personalized application message,
+6. exports the results in CSV and Markdown format.
+
+## Current version
+
+The current version is a rule-based prototype.
+
+It does not yet search job offers automatically online and does not yet use a Large Language Model for generation.
+
+Instead, it focuses on building a clean and understandable first pipeline.
+
+The scoring is based on several categories:
+
+- core data science and machine learning,
+- generative AI, LLM and NLP,
+- data engineering and production,
+- health, biomedical and research bonus,
+- finance and risk,
+- reporting and dashboarding.
+
+The goal is not to target only medical or research jobs.
+
+The priority is to identify realistic Data Scientist / ML / AI opportunities, while giving a bonus to health, biomedical or research-related positions.
+
+## Project structure
 
 ```text
-.
+ai-job-application-agent/
+│
 ├── data/
-│   ├── raw/          # Original data, not modified
-│   ├── interim/      # Intermediate data
-│   ├── processed/    # Clean data used for modeling
-│   └── external/     # External data or metadata
+│   ├── raw/
+│   │   └── job_offers.csv
+│   ├── processed/
+│   │   └── scored_job_offers.csv
+│   ├── interim/
+│   └── external/
 │
-├── notebooks/        # Jupyter notebooks
-├── src/              # Reusable Python code
-├── models/           # Saved models
-├── results/          # Metrics, predictions, outputs
-├── reports/
-│   ├── figures/      # Generated figures
-│   └── tables/       # Generated tables
+├── results/
+│   ├── application_messages.csv
+│   └── application_messages.md
 │
-├── tests/            # Unit tests
+├── src/
+│   ├── config.py
+│   ├── data.py
+│   ├── scoring.py
+│   └── application_message.py
+│
+├── README.md
 ├── requirements.txt
-├── config.yaml
-└── README.md
+└── .gitignore
 ```
 
-## How to use this template for a new project
+## How it works
 
-This repository is meant to be reused as a starting point for new data science projects.
+### 1. Input job offers
 
-### 1. Create a new repository from the template on GitHub
-
-On GitHub:
-
-1. Open this template repository.
-2. Click on **Use this template**.
-3. Select **Create a new repository**.
-4. Choose a new repository name, for example:
+Job offers are stored in:
 
 ```text
-my-new-data-science-project
+data/raw/job_offers.csv
 ```
 
-5. Create the repository.
+Example format:
 
-This will create a new GitHub repository with the same structure as this template.
+```csv
+title,company,location,contract_type,source_url,description
+LLM Data Scientist,Gorgias,Paris,CDI,https://example.com,"LLM, NLP, Python, AI agents, ecommerce, machine learning"
+```
 
-### 2. Clone the new repository locally
+### 2. Score job offers
 
-Open VS Code, then open a terminal and go to the folder where you store your projects.
-
-Example:
+Run:
 
 ```bash
-cd /c/code
+python src/data.py
 ```
 
-Then clone the new repository:
+This creates:
+
+```text
+data/processed/scored_job_offers.csv
+```
+
+Each offer receives:
+
+- a global score,
+- a recommendation level,
+- a fit type,
+- a suggested next action,
+- an explanation of the match.
+
+### 3. Generate application messages
+
+Run:
 
 ```bash
-git clone https://github.com/Sharon-py/my-new-data-science-project.git
+python src/application_message.py
 ```
 
-Move into the project folder:
+This creates:
+
+```text
+results/application_messages.csv
+results/application_messages.md
+```
+
+The Markdown file is easier to read and contains one section per selected job offer.
+
+## Example output
+
+For a job offer such as:
+
+```text
+LLM Data Scientist — Gorgias
+```
+
+The system can identify a strong match with:
+
+- Python,
+- machine learning,
+- NLP,
+- LLM,
+- AI agents.
+
+It then recommends applying quickly and generates a first personalized application message.
+
+## Current limitations
+
+This version is intentionally simple.
+
+Current limitations:
+
+- job offers are entered manually in a CSV file,
+- scoring is based on keywords and weights,
+- the application message is generated with templates,
+- no automatic job scraping is implemented yet,
+- no LLM API is used yet.
+
+## Next improvements
+
+Planned improvements:
+
+- load real job offers from APIs or job boards,
+- improve the scoring with semantic similarity,
+- add a real LLM to generate more natural application messages,
+- include the candidate CV as structured input,
+- add a Streamlit interface,
+- export a full job search dashboard.
+
+## Tech stack
+
+- Python
+- pandas
+- Markdown export
+- CSV processing
+- rule-based scoring
+
+## How to run the project
+
+Clone the repository:
 
 ```bash
-cd my-new-data-science-project
+git clone https://github.com/Sharon-py/ai-job-application-agent.git
+cd ai-job-application-agent
 ```
 
-Open the project in VS Code:
-
-```bash
-code .
-```
-
-### 3. Create a virtual environment
-
-Create a Python virtual environment:
+Create a virtual environment:
 
 ```bash
 python -m venv .venv
@@ -93,72 +192,28 @@ Activate it on Windows with Git Bash:
 source .venv/Scripts/activate
 ```
 
-Or with PowerShell:
-
-```powershell
-.venv\Scripts\activate
-```
-
-### 4. Install dependencies
-
-Install the required packages:
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-If new packages are installed during the project, update `requirements.txt`:
+Run the scoring pipeline:
 
 ```bash
-pip freeze > requirements.txt
+python src/data.py
 ```
 
-### 5. Save changes with Git
-
-Check modified files:
+Generate application messages:
 
 ```bash
-git status
+python src/application_message.py
 ```
-
-Add changes:
-
-```bash
-git add .
-```
-
-Commit changes:
-
-```bash
-git commit -m "Initial project setup"
-```
-
-Push to GitHub:
-
-```bash
-git push
-```
-
-## Typical Workflow
-
-The usual workflow is:
-
-1. Load the raw data
-2. Explore and understand the dataset
-3. Clean and preprocess the data
-4. Build features
-5. Train models
-6. Evaluate the results
-7. Interpret the model and document the conclusions
 
 ## Notes
 
-The folders `data/`, `models/`, `results/`, and generated report outputs are ignored by Git by default.
+This project is a learning-oriented prototype.
 
-This avoids pushing large files, sensitive datasets, trained models, or temporary outputs to GitHub.
+The first goal is to build a clean and understandable pipeline before adding more advanced agentic features.
 
-Only the empty folder structure is kept using `.gitkeep` files.
-
-## Author
-
-Sharon
+Future versions may include automatic job search, semantic matching, LLM-based message generation, and a user interface.

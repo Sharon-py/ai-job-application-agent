@@ -11,6 +11,7 @@ env/
 
 # Jupyter
 .ipynb_checkpoints/
+notebooks/to_hide/
 
 # Data folders
 data/raw/*
@@ -24,6 +25,9 @@ data/external/*
 !data/processed/.gitkeep
 !data/external/.gitkeep
 
+# Keep public sample data
+!data/raw/job_offers_sample.csv
+
 # Models and generated outputs
 models/*
 results/*
@@ -36,8 +40,29 @@ reports/tables/*
 !reports/figures/.gitkeep
 !reports/tables/.gitkeep
 
-# Environment variables
+# Keep public sample outputs
+!results/application_messages_sample.md
+
+# Environment variables and secrets
 .env
+.env.*
+*.key
+*.pem
+credentials.json
+token.json
+
+# Logs and caches
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
 
 # OS files
 .DS_Store

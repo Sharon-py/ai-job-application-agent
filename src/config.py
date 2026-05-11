@@ -1,38 +1,28 @@
+# Ce fichier sert à centraliser les chemins importants du projet.
+# L'idée est simple : au lieu d'écrire les chemins partout,
+# on les définit une seule fois ici.
+
 from pathlib import Path
 
+# ROOT_DIR correspond à la racine du projet.
+# Exemple :
+# C:/code/ai-job-application-agent
+ROOT_DIR = Path(__file__).resolve().parents[1]
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# Dossier principal des données.
+DATA_DIR = ROOT_DIR / "data"
 
-DATA_DIR = PROJECT_ROOT / "data"
+# Dossier contenant les données brutes.
 RAW_DIR = DATA_DIR / "raw"
-INTERIM_DIR = DATA_DIR / "interim"
+
+# Dossier contenant les données nettoyées ou transformées.
 PROCESSED_DIR = DATA_DIR / "processed"
-EXTERNAL_DIR = DATA_DIR / "external"
 
-NOTEBOOKS_DIR = PROJECT_ROOT / "notebooks"
-MODELS_DIR = PROJECT_ROOT / "models"
-RESULTS_DIR = PROJECT_ROOT / "results"
+# Dossier contenant les résultats éventuels.
+RESULTS_DIR = ROOT_DIR / "results"
 
-REPORTS_DIR = PROJECT_ROOT / "reports"
-FIGURES_DIR = REPORTS_DIR / "figures"
-TABLES_DIR = REPORTS_DIR / "tables"
+# Chemin vers le fichier CSV des offres brutes.
+JOB_OFFERS_PATH = RAW_DIR / "job_offers.csv"
 
-
-def create_project_dirs() -> None:
-    """
-    Create all standard project directories if they do not already exist.
-    """
-    directories = [
-        RAW_DIR,
-        INTERIM_DIR,
-        PROCESSED_DIR,
-        EXTERNAL_DIR,
-        NOTEBOOKS_DIR,
-        MODELS_DIR,
-        RESULTS_DIR,
-        FIGURES_DIR,
-        TABLES_DIR,
-    ]
-
-    for directory in directories:
-        directory.mkdir(parents=True, exist_ok=True)
+# Chemin vers le fichier CSV des offres scorées.
+SCORED_OFFERS_PATH = PROCESSED_DIR / "scored_job_offers.csv"
