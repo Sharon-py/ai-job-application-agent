@@ -1,92 +1,84 @@
-# Ce fichier sert à charger les offres d'emploi,
-# appliquer le scoring,
-# puis sauvegarder les résultats dans un fichier CSV.
-
 import pandas as pd
 
-# On importe les chemins définis dans config.py.
-# Comme ça, on évite d'écrire les chemins à la main partout dans le projet.
-from config import JOB_OFFERS_PATH, SCORED_OFFERS_PATH
-
-# On importe la fonction qui calcule le score d'une offre.
+from config import JOB_OFFERS_PATH, SCORED_OFFERS_PATH, PROCESSED_DIR
 from scoring import score_offer
+from schema import validate_job_offers_schema
+
+
+def load_job_offers(path=JOB_OFFERS_PATH) -> pd.DataFrame:
+    """
+    Loads raw job offers from CSV.
+    """
+
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Job offers file not found: {path}\n"
+            "Create data/raw/job_offers.csv first."
+        )
+
+    jobs = pd.read_csv(path)
+    validate_job_offers_schema(jobs)
+
+    return jobs
+
+
+def score_job_offers(jobs: pd.DataFrame) -> pd.DataFrame:
+    """
+    Applies the rule-based scoring function to all job offers.
+    """
+
+    scored_rows = []
+
+    for _, row in jobs.iterrows():
+        description = row.get("description", "")
+        scoring_result = score_offer(description)
+
+        combined_row = {
+            **row.to_dict(),
+            **scoring_result,
+        }
+
+        scored_rows.append(combined_row)
+
+    scored_jobs = pd.DataFrame(scored_rows)
+
+    if "score" in scored_jobs.columns:
+        scored_jobs = scored_jobs.sort_values(
+            by="score",
+            ascending=False
+        )
+
+    return scored_jobs
 
 
 def main():
-    """
-    Fonction principale du script.
+    jobs = load_job_offers()
+    scored_jobs = score_job_offers(jobs)
 
-    Elle fait 4 choses :
-    1. Charger les offres depuis data/raw/job_offers.csv
-    2. Calculer un score pour chaque offre
-    3. Trier les offres de la plus intéressante à la moins intéressante
-    4. Sauvegarder le résultat dans data/processed/scored_job_offers.csv
-    """
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    scored_jobs.to_csv(SCORED_OFFERS_PATH, index=False)
 
-    # On lit le fichier CSV qui contient les offres.
-    jobs = pd.read_csv(JOB_OFFERS_PATH)
+    print("Scoring completed.")
+    print(f"Saved scored job offers to: {SCORED_OFFERS_PATH}")
 
-    # Pour chaque description d'offre, on applique la fonction score_offer.
-    #
-    # Résultat :
-    # scoring_results contient une série de dictionnaires.
-    #
-    # Exemple :
-    # {
-    #   "score": 18,
-    #   "recommendation": "Opportunité intéressante",
-    #   "explanation": "...",
-    #   ...
-    # }
-    scoring_results = jobs["description"].apply(score_offer)
+    columns_to_display = [
+        "title",
+        "company",
+        "location",
+        "status",
+        "score",
+        "recommendation",
+        "fit_type",
+        "next_action",
+    ]
 
-    # On transforme les dictionnaires de scoring en DataFrame.
-    #
-    # Avant :
-    # une colonne avec des dictionnaires
-    #
-    # Après :
-    # plusieurs colonnes :
-    # score, recommendation, explanation, core_data_science, etc.
-    scoring_df = pd.DataFrame(scoring_results.tolist())
+    existing_columns = [
+        column for column in columns_to_display
+        if column in scored_jobs.columns
+    ]
 
-    # On colle les colonnes originales des offres
-    # avec les nouvelles colonnes de scoring.
-    jobs_scored = pd.concat([jobs, scoring_df], axis=1)
-
-    # On trie les offres par score décroissant.
-    # La meilleure offre apparaît donc en premier.
-    jobs_scored = jobs_scored.sort_values("score", ascending=False)
-
-    # On sauvegarde le résultat dans data/processed/scored_job_offers.csv.
-    jobs_scored.to_csv(SCORED_OFFERS_PATH, index=False)
-
-    # On affiche un résumé dans le terminal.
-    print("Offres classées :")
-
-    print(
-        jobs_scored[
-            [
-                "title",
-                "company",
-                "location",
-                "score",
-                "recommendation",
-                "fit_type",
-                "next_action",
-                "explanation",
-            ]
-        ]
-    )
+    print(scored_jobs[existing_columns].head(10))
 
 
-# Cette condition permet de lancer main()
-# seulement quand on exécute directement ce fichier.
-#
-# Exemple :
-# python src/data.py
-#
-# Si ce fichier est importé ailleurs,
-# main() ne se lancera pas automatiquement.
 if __name__ == "__main__":
     main()
