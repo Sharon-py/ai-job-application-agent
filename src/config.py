@@ -25,3 +25,5 @@ SEARCH_QUERIES_PATH = RAW_DIR / "search_queries.csv"
 JOB_SEARCH_RESULTS_PATH = RESULTS_DIR / "job_search_results.md"
 
 COLLECTED_JOBS_PATH = RAW_DIR / "collected_jobs.csv"
+
+APP_STATE_PATH = PROCESSED_DIR / "application_status.csv"
