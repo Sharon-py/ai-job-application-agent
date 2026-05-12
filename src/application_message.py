@@ -1,6 +1,7 @@
 # Ce fichier sert à générer des messages de candidature simples
 # à partir des offres déjà scorées.
 
+from matplotlib import lines
 import pandas as pd
 
 from config import SCORED_OFFERS_PATH, RESULTS_DIR
@@ -100,7 +101,8 @@ def save_messages_to_markdown(selected_jobs: pd.DataFrame, output_path) -> None:
         lines.append("| Information | Valeur |")
         lines.append("|---|---|")
         lines.append(f"| Localisation | {row['location']} |")
-        lines.append(f"| Score | {row['score']} |")
+        lines.append(f"| Score brut | {row['score']} |")
+        lines.append(f"| Score ajusté | {row['adjusted_score']} |")
         lines.append(f"| Recommandation | {row['recommendation']} |")
         lines.append(f"| Type de match | {row['fit_type']} |")
         lines.append(f"| Action suivante | {row['next_action']} |")
@@ -125,30 +127,29 @@ def main():
 
     Elle :
     1. charge les offres scorées
-    2. garde les offres les plus intéressantes
+    2. garde les offres pour lesquelles une candidature est pertinente
     3. génère un message pour chaque offre
     4. sauvegarde les messages dans results/application_messages.csv
     """
 
-    # On lit le fichier contenant les offres scorées.
     jobs = pd.read_csv(SCORED_OFFERS_PATH)
 
-    # On garde seulement les offres pour lesquelles une candidature est pertinente.
-    # Ici : toutes les offres avec un score >= 12.
-    selected_jobs = jobs[jobs["score"] >= 12].copy()
+    selected_jobs = jobs[
+        (jobs["adjusted_score"] >= 12)
+        & (jobs["status"].isin(["to_review", "interested"]))
+        & (jobs["seniority_level"] != "too_senior")
+    ].copy()
 
-    # On génère un message pour chaque offre sélectionnée.
     selected_jobs["application_message"] = selected_jobs.apply(
         generate_application_message,
         axis=1,
     )
 
-    # On vérifie que le dossier results existe.
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # On sauvegarde les messages dans un CSV.
     output_path = RESULTS_DIR / "application_messages.csv"
     selected_jobs.to_csv(output_path, index=False)
+
     markdown_output_path = RESULTS_DIR / "application_messages.md"
     save_messages_to_markdown(selected_jobs, markdown_output_path)
 
@@ -156,11 +157,11 @@ def main():
     print(f"CSV sauvegardé ici : {output_path}")
     print(f"Markdown sauvegardé ici : {markdown_output_path}")
 
-    # On affiche un petit aperçu dans le terminal.
     for _, row in selected_jobs.iterrows():
         print("\n" + "=" * 80)
         print(f"{row['title']} - {row['company']}")
         print("=" * 80)
+        print(row["application_message"])
         print(row["application_message"])
 
 
