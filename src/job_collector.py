@@ -9,7 +9,7 @@ from config import JOB_OFFERS_PATH, COLLECTED_JOBS_PATH
 
 LOCATION = "Paris, France"
 RESULTS_PER_QUERY = 15
-HOURS_OLD = 72  # 7 derniers jours environ
+HOURS_OLD = 10  # 7 derniers jours environ
 
 
 SEARCH_TERMS = [
@@ -198,20 +198,42 @@ def remove_duplicates(jobs: pd.DataFrame) -> pd.DataFrame:
     Removes duplicates without being too aggressive.
 
     Priority:
-    1. Same source URL = duplicate.
+    1. Same non-empty source URL = duplicate.
     2. Same title + company + location = likely duplicate.
+
+    The function keeps the last occurrence in the original order.
+    This is useful because newly collected jobs are appended after existing jobs.
     """
 
     jobs = jobs.copy()
 
-    if "source_url" in jobs.columns:
-        jobs = jobs.sort_values("source_url")
-        jobs = jobs.drop_duplicates(subset=["source_url"], keep="last")
+    # Keep original order so "keep=last" really means:
+    # keep the most recently appended version.
+    jobs["_original_order"] = range(len(jobs))
 
+    # Deduplicate jobs with a real source URL.
+    jobs_with_url = jobs[jobs["source_url"].fillna("").astype(str).str.strip() != ""]
+    jobs_without_url = jobs[jobs["source_url"].fillna("").astype(str).str.strip() == ""]
+
+    jobs_with_url = jobs_with_url.drop_duplicates(
+        subset=["source_url"],
+        keep="last",
+    )
+
+    jobs = pd.concat(
+        [jobs_with_url, jobs_without_url],
+        ignore_index=True,
+    )
+
+    # Deduplicate likely duplicates across different sources.
+    jobs = jobs.sort_values("_original_order")
     jobs = jobs.drop_duplicates(
         subset=["title", "company", "location"],
         keep="last",
     )
+
+    jobs = jobs.sort_values("_original_order")
+    jobs = jobs.drop(columns=["_original_order"])
 
     return jobs
 
