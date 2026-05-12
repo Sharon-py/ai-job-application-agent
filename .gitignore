@@ -71,3 +71,9 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Local SQLite database
+data/*.db
+data/*.db-journal
+data/*.sqlite
+data/*.sqlite3
