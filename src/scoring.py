@@ -7,6 +7,7 @@
 # - un poids : plus il est élevé, plus cette catégorie compte dans le score final
 # - des mots-clés : si ces mots apparaissent dans l'offre, on ajoute des points
 
+import re
 import unicodedata
 
 CATEGORIES = {
@@ -221,6 +222,34 @@ SENIORITY_SIGNALS = {
     ],
 }
 
+CONTRACT_SIGNALS = {
+    "target_contract": [
+        "cdi",
+        "permanent",
+        "full-time",
+        "full time",
+        "temps plein",
+    ],
+    "possible_contract": [
+        "cdd",
+        "fixed-term",
+        "fixed term",
+    ],
+    "non_priority_contract": [
+        "freelance",
+        "contractor",
+        "stage",
+        "internship",
+        "alternance",
+        "apprentissage",
+        "apprenticeship",
+        "student",
+        "student job",
+        "trainee",
+        "stagiaire",
+    ],
+}  
+
 
 def normalize_text(text: str) -> str:
     """
@@ -241,10 +270,97 @@ def normalize_text(text: str) -> str:
 
     return text
 
+def contains_signal(text: str, signal: str) -> bool:
+    """
+    Checks whether a signal appears as a real expression in the text.
+
+    This avoids false positives like:
+    - intern found inside internal
+    - stage found inside multi-stage
+    """
+
+    text = normalize_text(text)
+    signal = normalize_text(signal)
+
+    pattern = r"(?<![a-zA-Z])" + re.escape(signal) + r"(?![a-zA-Z])"
+
+    return re.search(pattern, text) is not None
+
+def detect_contract_type(text: str) -> dict:
+    """
+    Detects whether the contract type seems aligned with the current job search.
+
+    Important:
+    We remove ML expressions like "apprentissage automatique" before detecting
+    apprenticeship contracts, otherwise they create false positives.
+    """
+
+    text = normalize_text(text)
+
+    # Avoid confusing "apprentissage automatique" with apprenticeship contracts.
+    ml_expressions = [
+        "apprentissage automatique",
+        "apprentissage profond",
+        "apprentissage supervise",
+        "apprentissage non supervise",
+        "apprentissage par renforcement",
+    ]
+
+    for expression in ml_expressions:
+        text = text.replace(expression, "")
+
+    matched_signals = {
+        "target_contract": [],
+        "possible_contract": [],
+        "non_priority_contract": [],
+    }
+
+    for level, signals in CONTRACT_SIGNALS.items():
+        for signal in signals:
+            if contains_signal(text, signal):
+                matched_signals[level].append(signal)
+
+    if matched_signals["non_priority_contract"]:
+        return {
+            "contract_fit": "non_priority_contract",
+            "contract_penalty": 25,
+            "contract_warning": (
+                "Le type de contrat ne correspond pas à la recherche actuelle "
+                f"(signaux détectés : {', '.join(matched_signals['non_priority_contract'])})."
+            ),
+            "contract_signals": matched_signals,
+        }
+
+    if matched_signals["target_contract"]:
+        return {
+            "contract_fit": "target_contract",
+            "contract_penalty": 0,
+            "contract_warning": "Le type de contrat semble aligné avec la recherche actuelle.",
+            "contract_signals": matched_signals,
+        }
+
+    if matched_signals["possible_contract"]:
+        return {
+            "contract_fit": "possible_contract",
+            "contract_penalty": 2,
+            "contract_warning": "Le type de contrat est possible mais à vérifier.",
+            "contract_signals": matched_signals,
+        }
+
+    return {
+        "contract_fit": "not_specified",
+        "contract_penalty": 0,
+        "contract_warning": "Aucun signal clair sur le type de contrat.",
+        "contract_signals": matched_signals,
+    }
 
 def detect_seniority(description: str) -> dict:
     """
-    Detects whether a job offer seems too senior for the target profile.
+    Detects whether a job offer seems junior-friendly, senior, or ambiguous.
+
+    Important rule:
+    If junior-friendly signals are present, they override senior signals.
+    This avoids losing potentially relevant offers that mention several levels.
     """
 
     description = normalize_text(description)
@@ -257,10 +373,35 @@ def detect_seniority(description: str) -> dict:
 
     for level, signals in SENIORITY_SIGNALS.items():
         for signal in signals:
-            if normalize_text(signal) in description:
+            if contains_signal(description, signal):
                 matched_signals[level].append(signal)
 
-    if matched_signals["too_senior"]:
+    has_junior = bool(matched_signals["junior_friendly"])
+    has_senior = bool(matched_signals["senior"])
+    has_too_senior = bool(matched_signals["too_senior"])
+
+    if has_junior and (has_senior or has_too_senior):
+        return {
+            "seniority_level": "mixed_seniority",
+            "seniority_penalty": 0,
+            "seniority_warning": (
+                "L'offre contient à la fois des signaux junior/accessibles "
+                "et des signaux senior. À relire manuellement avant décision."
+            ),
+            "seniority_signals": matched_signals,
+        }
+
+    if has_junior:
+        return {
+            "seniority_level": "junior_friendly",
+            "seniority_penalty": 0,
+            "seniority_warning": (
+                "L'offre contient des signaux compatibles avec un profil junior ou early-career."
+            ),
+            "seniority_signals": matched_signals,
+        }
+
+    if has_too_senior:
         return {
             "seniority_level": "too_senior",
             "seniority_penalty": 12,
@@ -271,23 +412,13 @@ def detect_seniority(description: str) -> dict:
             "seniority_signals": matched_signals,
         }
 
-    if matched_signals["senior"]:
+    if has_senior:
         return {
             "seniority_level": "senior",
             "seniority_penalty": 6,
             "seniority_warning": (
                 "L'offre semble senior et doit être analysée avec prudence "
                 f"(signaux détectés : {', '.join(matched_signals['senior'])})."
-            ),
-            "seniority_signals": matched_signals,
-        }
-
-    if matched_signals["junior_friendly"]:
-        return {
-            "seniority_level": "junior_friendly",
-            "seniority_penalty": 0,
-            "seniority_warning": (
-                "L'offre contient des signaux compatibles avec un profil junior."
             ),
             "seniority_signals": matched_signals,
         }
@@ -299,13 +430,12 @@ def detect_seniority(description: str) -> dict:
         "seniority_signals": matched_signals,
     }
 
-
 def score_offer(description: str) -> dict:
     """
     Cette fonction prend la description d'une offre
     et renvoie un dictionnaire avec :
     - le score total
-    - le score ajusté avec pénalité seniorité
+    - le score ajusté avec pénalité seniorité et contrat
     - les scores par catégorie
     - les mots-clés trouvés
     - une explication lisible
@@ -337,8 +467,15 @@ def score_offer(description: str) -> dict:
     explanation = generate_explanation(category_scores, matched_keywords)
 
     seniority_result = detect_seniority(description)
+    contract_result = detect_contract_type(description)
+
     seniority_penalty = seniority_result["seniority_penalty"]
-    adjusted_score = max(total_score - seniority_penalty, 0)
+    contract_penalty = contract_result["contract_penalty"]
+
+    adjusted_score = max(
+        total_score - seniority_penalty - contract_penalty,
+        0,
+    )
 
     recommendation = get_recommendation_level(adjusted_score)
     fit_type = get_fit_type(category_scores)
@@ -348,9 +485,17 @@ def score_offer(description: str) -> dict:
         recommendation = "Très aligné techniquement mais probablement trop senior"
         next_action = "Archiver ou garder comme inspiration, mais ne pas prioriser"
 
+    elif seniority_result["seniority_level"] == "mixed_seniority":
+        recommendation = "Intéressant mais seniorité à vérifier"
+        next_action = "Lire l'offre en détail avant de décider"
+
     elif seniority_result["seniority_level"] == "senior":
         recommendation = "Intéressant mais possiblement senior"
         next_action = "Lire en détail avant de candidater"
+
+    if contract_result["contract_fit"] == "non_priority_contract":
+        recommendation = "Non prioritaire car contrat non adapté"
+        next_action = "Ne pas prioriser pour la recherche actuelle"
 
     return {
         "score": total_score,
@@ -359,11 +504,18 @@ def score_offer(description: str) -> dict:
         "fit_type": fit_type,
         "next_action": next_action,
         "explanation": explanation,
+
         "seniority_level": seniority_result["seniority_level"],
         "seniority_warning": seniority_result["seniority_warning"],
         "seniority_penalty": seniority_penalty,
-        "matched_keywords": matched_keywords,
         "seniority_signals": seniority_result["seniority_signals"],
+
+        "contract_fit": contract_result["contract_fit"],
+        "contract_warning": contract_result["contract_warning"],
+        "contract_penalty": contract_penalty,
+        "contract_signals": contract_result["contract_signals"],
+
+        "matched_keywords": matched_keywords,
         **category_scores,
     }
 
@@ -424,6 +576,8 @@ def generate_explanation(category_scores: dict, matched_keywords: dict) -> str:
         + "; ".join(parts)
         + "."
     )
+
+
 
 def get_fit_type(category_scores: dict) -> str:
     """

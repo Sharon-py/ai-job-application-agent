@@ -1,3 +1,4 @@
+from matplotlib.pyplot import title
 import pandas as pd
 
 from config import JOB_OFFERS_PATH, SCORED_OFFERS_PATH, PROCESSED_DIR
@@ -30,8 +31,12 @@ def score_job_offers(jobs: pd.DataFrame) -> pd.DataFrame:
     scored_rows = []
 
     for _, row in jobs.iterrows():
+        title = row.get("title", "")
         description = row.get("description", "")
-        scoring_result = score_offer(description)
+
+        text_to_score = f"{title}\n\n{description}"
+
+        scoring_result = score_offer(text_to_score)
 
         combined_row = {
             **row.to_dict(),
@@ -42,7 +47,12 @@ def score_job_offers(jobs: pd.DataFrame) -> pd.DataFrame:
 
     scored_jobs = pd.DataFrame(scored_rows)
 
-    if "score" in scored_jobs.columns:
+    if "adjusted_score" in scored_jobs.columns:
+        scored_jobs = scored_jobs.sort_values(
+            by="adjusted_score",
+            ascending=False
+        )
+    elif "score" in scored_jobs.columns:
         scored_jobs = scored_jobs.sort_values(
             by="score",
             ascending=False

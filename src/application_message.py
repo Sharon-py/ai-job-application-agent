@@ -100,12 +100,14 @@ def save_messages_to_markdown(selected_jobs: pd.DataFrame, output_path) -> None:
         lines.append("")
         lines.append("| Information | Valeur |")
         lines.append("|---|---|")
-        lines.append(f"| Localisation | {row['location']} |")
-        lines.append(f"| Score brut | {row['score']} |")
-        lines.append(f"| Score ajusté | {row['adjusted_score']} |")
-        lines.append(f"| Recommandation | {row['recommendation']} |")
-        lines.append(f"| Type de match | {row['fit_type']} |")
-        lines.append(f"| Action suivante | {row['next_action']} |")
+        lines.append(f"| Localisation | {row.get('location', '')} |")
+        lines.append(f"| Source | {row.get('source', '')} |")
+        lines.append(f"| Lien offre | {row.get('source_url', '')} |")
+        lines.append(f"| Score brut | {row.get('score', '')} |")
+        lines.append(f"| Score ajusté | {row.get('adjusted_score', '')} |")
+        lines.append(f"| Recommandation | {row.get('recommendation', '')} |")
+        lines.append(f"| Type de match | {row.get('fit_type', '')} |")
+        lines.append(f"| Action suivante | {row.get('next_action', '')} |")
         lines.append("")
         lines.append("### Pourquoi cette offre ressort ?")
         lines.append("")
@@ -127,18 +129,25 @@ def main():
 
     Elle :
     1. charge les offres scorées
-    2. garde les offres pour lesquelles une candidature est pertinente
-    3. génère un message pour chaque offre
-    4. sauvegarde les messages dans results/application_messages.csv
+    2. garde uniquement les offres pertinentes pour une vraie candidature
+    3. exclut les offres trop senior ou avec un contrat non adapté
+    4. génère un message pour les meilleures offres
+    5. sauvegarde les messages dans results/application_messages.csv et .md
     """
 
     jobs = pd.read_csv(SCORED_OFFERS_PATH)
 
     selected_jobs = jobs[
-        (jobs["adjusted_score"] >= 12)
+        (jobs["adjusted_score"] >= 20)
         & (jobs["status"].isin(["to_review", "interested"]))
         & (jobs["seniority_level"] != "too_senior")
+        & (jobs["contract_fit"] != "non_priority_contract")
     ].copy()
+
+    selected_jobs = selected_jobs.sort_values(
+        by="adjusted_score",
+        ascending=False,
+    ).head(20)
 
     selected_jobs["application_message"] = selected_jobs.apply(
         generate_application_message,
@@ -148,12 +157,18 @@ def main():
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     output_path = RESULTS_DIR / "application_messages.csv"
-    selected_jobs.to_csv(output_path, index=False)
+    selected_jobs.to_csv(
+    output_path,
+    index=False,
+    sep=";",
+    encoding="utf-8-sig",
+)
 
     markdown_output_path = RESULTS_DIR / "application_messages.md"
     save_messages_to_markdown(selected_jobs, markdown_output_path)
 
     print("Messages générés avec succès.")
+    print(f"Nombre de messages générés : {len(selected_jobs)}")
     print(f"CSV sauvegardé ici : {output_path}")
     print(f"Markdown sauvegardé ici : {markdown_output_path}")
 
@@ -161,7 +176,6 @@ def main():
         print("\n" + "=" * 80)
         print(f"{row['title']} - {row['company']}")
         print("=" * 80)
-        print(row["application_message"])
         print(row["application_message"])
 
 

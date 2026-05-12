@@ -32,11 +32,23 @@ def create_application_tracker(jobs: pd.DataFrame) -> pd.DataFrame:
         "source_url",
         "date_found",
         "status",
+
         "score",
+        "adjusted_score",
+
         "recommendation",
         "fit_type",
         "next_action",
         "explanation",
+
+        "seniority_level",
+        "seniority_warning",
+        "seniority_penalty",
+
+        "contract_fit",
+        "contract_warning",
+        "contract_penalty",
+
         "notes",
     ]
 
@@ -53,23 +65,39 @@ def create_application_tracker(jobs: pd.DataFrame) -> pd.DataFrame:
     if "notes" not in tracker.columns:
         tracker["notes"] = ""
 
+    if "adjusted_score" not in tracker.columns and "score" in tracker.columns:
+        tracker["adjusted_score"] = tracker["score"]
+
     tracker = tracker.sort_values(
-        by="score",
-        ascending=False
+        by="adjusted_score",
+        ascending=False,
     )
 
     return tracker
 
 
-def export_shortlist(tracker: pd.DataFrame, min_score: int = 12) -> None:
+def export_shortlist(tracker: pd.DataFrame, min_score: int = 20) -> None:
     """
     Exports a readable Markdown shortlist.
+
+    The shortlist keeps only job offers that are realistic and actionable:
+    - good adjusted score
+    - still to review or marked as interesting
+    - not clearly too senior
+    - not internship / apprenticeship / freelance / non-priority contract
     """
 
     shortlist = tracker[
-        (tracker["score"] >= min_score)
+        (tracker["adjusted_score"] >= min_score)
         & (tracker["status"].isin(["to_review", "interested"]))
+        & (tracker["seniority_level"] != "too_senior")
+        & (tracker["contract_fit"] != "non_priority_contract")
     ].copy()
+
+    shortlist = shortlist.sort_values(
+        by="adjusted_score",
+        ascending=False,
+    )
 
     lines = []
     lines.append("# Job application shortlist")
@@ -89,7 +117,10 @@ def export_shortlist(tracker: pd.DataFrame, min_score: int = 12) -> None:
             lines.append(f"- Contract: {row.get('contract_type', '')}")
             lines.append(f"- Source: {row.get('source', '')}")
             lines.append(f"- Status: {row.get('status', '')}")
-            lines.append(f"- Score: {row.get('score', '')}")
+            lines.append(f"- Score brut: {row.get('score', '')}")
+            lines.append(f"- Score ajusté: {row.get('adjusted_score', '')}")
+            lines.append(f"- Seniority level: {row.get('seniority_level', '')}")
+            lines.append(f"- Contract fit: {row.get('contract_fit', '')}")
             lines.append(f"- Recommendation: {row.get('recommendation', '')}")
             lines.append(f"- Fit type: {row.get('fit_type', '')}")
             lines.append(f"- Next action: {row.get('next_action', '')}")
@@ -99,6 +130,22 @@ def export_shortlist(tracker: pd.DataFrame, min_score: int = 12) -> None:
             lines.append("")
             lines.append(str(row.get("explanation", "")))
             lines.append("")
+
+            seniority_warning = row.get("seniority_warning", "")
+            contract_warning = row.get("contract_warning", "")
+
+            if seniority_warning:
+                lines.append("### Seniority check")
+                lines.append("")
+                lines.append(str(seniority_warning))
+                lines.append("")
+
+            if contract_warning:
+                lines.append("### Contract check")
+                lines.append("")
+                lines.append(str(contract_warning))
+                lines.append("")
+
             lines.append("---")
             lines.append("")
 
@@ -113,7 +160,7 @@ def main():
     APPLICATION_TRACKER_PATH.parent.mkdir(parents=True, exist_ok=True)
     tracker.to_csv(APPLICATION_TRACKER_PATH, index=False)
 
-    export_shortlist(tracker)
+    export_shortlist(tracker, min_score=20)
 
     print("Application tracker created.")
     print(f"Saved tracker to: {APPLICATION_TRACKER_PATH}")
@@ -124,6 +171,9 @@ def main():
         "company",
         "status",
         "score",
+        "adjusted_score",
+        "seniority_level",
+        "contract_fit",
         "recommendation",
         "next_action",
     ]
