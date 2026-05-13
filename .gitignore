@@ -45,11 +45,15 @@ reports/tables/*
 
 # Environment variables and secrets
 .env
-.env.*
+.env.local
+.env.*.local
 *.key
 *.pem
 credentials.json
 token.json
+
+# Keep example env file versioned
+!.env.example
 
 # Logs and caches
 *.log
@@ -71,15 +75,6 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
-
-# Local SQLite database
-data/*.db
-data/*.db-journal
-data/*.sqlite
-data/*.sqlite3
-
-# Environment variables
-.env
 
 # Local SQLite database
 data/*.db
