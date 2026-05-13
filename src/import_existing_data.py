@@ -167,6 +167,8 @@ def import_existing_data() -> int:
     print(f"Loaded scored jobs: {len(scored_jobs)}")
 
     jobs = add_job_id(scored_jobs)
+    if "date_posted" not in jobs.columns:
+        jobs["date_posted"] = ""
     jobs = merge_application_messages(jobs)
     jobs = merge_application_status(jobs)
 

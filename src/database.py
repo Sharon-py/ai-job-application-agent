@@ -19,6 +19,7 @@ JOBS_COLUMNS = [
     "source_url",
     "description",
     "date_found",
+    "date_posted",
     "source",
     "status",
     "personal_notes",
@@ -88,6 +89,7 @@ def initialize_database(database_path: Path = DATABASE_PATH) -> None:
                 source_url TEXT,
                 description TEXT,
                 date_found TEXT,
+                date_posted TEXT,
                 source TEXT,
                 status TEXT DEFAULT 'to_review',
                 personal_notes TEXT DEFAULT '',
@@ -112,6 +114,8 @@ def initialize_database(database_path: Path = DATABASE_PATH) -> None:
         )
 
         connection.commit()
+
+    add_missing_columns(database_path)
 
 
 def prepare_jobs_for_database(jobs: pd.DataFrame) -> pd.DataFrame:
@@ -143,6 +147,23 @@ def prepare_jobs_for_database(jobs: pd.DataFrame) -> pd.DataFrame:
         jobs[column] = jobs[column].fillna("")
 
     return jobs
+
+def add_missing_columns(database_path=DATABASE_PATH) -> None:
+    """
+    Adds missing columns to an existing SQLite database.
+
+    This keeps the local database compatible when the schema evolves.
+    """
+
+    with get_connection(database_path) as connection:
+        existing_columns = pd.read_sql_query(
+            "PRAGMA table_info(jobs)",
+            connection,
+        )["name"].tolist()
+
+        if "date_posted" not in existing_columns:
+            connection.execute("ALTER TABLE jobs ADD COLUMN date_posted TEXT")
+            connection.commit()
 
 
 def upsert_jobs(
@@ -179,6 +200,7 @@ def upsert_jobs(
                     source_url,
                     description,
                     date_found,
+                    date_posted,
                     source,
                     status,
                     personal_notes,
@@ -208,6 +230,7 @@ def upsert_jobs(
                     :source_url,
                     :description,
                     :date_found,
+                    :date_posted,
                     :source,
                     :status,
                     :personal_notes,
@@ -236,6 +259,7 @@ def upsert_jobs(
                     source_url = excluded.source_url,
                     description = excluded.description,
                     date_found = excluded.date_found,
+                    date_posted = excluded.date_posted,
                     source = excluded.source,
                     notes = excluded.notes,
                     score = excluded.score,

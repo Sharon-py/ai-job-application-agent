@@ -75,6 +75,8 @@ def load_jobs_from_database() -> pd.DataFrame:
         "company",
         "description",
         "source_url",
+        "date_found",
+        "date_posted",
         "adjusted_score",
         "recommendation",
         "next_action",
@@ -110,6 +112,8 @@ def load_jobs_from_database() -> pd.DataFrame:
     jobs["status"] = jobs["status"].fillna("to_review")
     jobs["personal_notes"] = jobs["personal_notes"].fillna("")
     jobs["application_message"] = jobs["application_message"].fillna("")
+    jobs["date_posted"] = jobs["date_posted"].fillna("")
+    jobs["date_found"] = jobs["date_found"].fillna("")
 
     return jobs
 
@@ -588,12 +592,12 @@ def main() -> None:
         info_col, action_col = st.columns([2, 1], gap="large")
 
         with info_col:
-            st.markdown("### Informations")
             st.write(f"📍 **Localisation :** {selected_job.get('location', '')}")
             st.write(f"🔗 **Source :** {selected_job.get('source', '')}")
+            st.write(f"📅 **Trouvée par l'agent :** {selected_job.get('date_found', '')}")
+            st.write(f"🕒 **Date de publication source :** {selected_job.get('date_posted', '')}")
             st.write(f"🎯 **Recommandation :** {selected_job.get('recommendation', '')}")
             st.write(f"➡️ **Action suivante :** {selected_job.get('next_action', '')}")
-
             source_url = selected_job.get("source_url", "")
             if isinstance(source_url, str) and source_url.strip():
                 st.link_button("Ouvrir l'offre", source_url)

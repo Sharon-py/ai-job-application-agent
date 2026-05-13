@@ -9,7 +9,7 @@ from config import JOB_OFFERS_PATH, COLLECTED_JOBS_PATH
 
 LOCATION = "Paris, France"
 RESULTS_PER_QUERY = 15
-HOURS_OLD = 10  # 7 derniers jours environ
+HOURS_OLD = 48  # 2 derniers jours environ
 
 
 SEARCH_TERMS = [
@@ -104,6 +104,7 @@ EXPECTED_COLUMNS = [
     "source_url",
     "description",
     "date_found",
+    "date_posted",
     "source",
     "status",
     "notes",
@@ -139,30 +140,49 @@ def collect_jobs_for_query(query: str) -> pd.DataFrame:
 
 def normalize_collected_jobs(jobs: pd.DataFrame) -> pd.DataFrame:
     """
-    Converts JobSpy output to the project's job_offers.csv schema.
+    Normalizes raw JobSpy results into the project job offer schema.
     """
 
-    normalized = pd.DataFrame()
+    if jobs.empty:
+        return pd.DataFrame(columns=EXPECTED_COLUMNS)
 
-    normalized["title"] = jobs.get("title", "")
-    normalized["company"] = jobs.get("company", "")
-    normalized["location"] = jobs.get("location", "")
-    normalized["contract_type"] = jobs.get("job_type", "")
-    normalized["source_url"] = jobs.get("job_url", "")
-    normalized["description"] = jobs.get("description", "")
-    normalized["date_found"] = date.today().isoformat()
-    normalized["source"] = jobs.get("site", "")
-    normalized["status"] = "to_review"
+    normalized_jobs = pd.DataFrame()
 
+    normalized_jobs["title"] = jobs.get("title", "")
+    normalized_jobs["company"] = jobs.get("company", "")
+    normalized_jobs["location"] = jobs.get("location", "")
+    normalized_jobs["contract_type"] = jobs.get("job_type", "")
+    normalized_jobs["source_url"] = jobs.get("job_url", "")
+    normalized_jobs["description"] = jobs.get("description", "")
+
+    # Date where our agent found the job.
+    normalized_jobs["date_found"] = date.today().isoformat()
+
+    # Date posted by the job board, when available.
+    if "date_posted" in jobs.columns:
+        normalized_jobs["date_posted"] = jobs["date_posted"]
+    elif "posted_at" in jobs.columns:
+        normalized_jobs["date_posted"] = jobs["posted_at"]
+    elif "date" in jobs.columns:
+        normalized_jobs["date_posted"] = jobs["date"]
+    else:
+        normalized_jobs["date_posted"] = ""
+
+    normalized_jobs["source"] = jobs.get("site", "")
+
+    # Default tracking status.
+    normalized_jobs["status"] = "to_review"
+
+    # Keep trace of the query that collected the job.
     if "search_query" in jobs.columns:
-        normalized["notes"] = (
+        normalized_jobs["notes"] = (
             "Collected automatically with JobSpy | query: "
             + jobs["search_query"].fillna("").astype(str)
         )
     else:
-        normalized["notes"] = "Collected automatically with JobSpy"
+        normalized_jobs["notes"] = "Collected automatically with JobSpy"
 
-    return normalized
+    return normalized_jobs[EXPECTED_COLUMNS]
 
 
 def load_existing_jobs() -> pd.DataFrame:
