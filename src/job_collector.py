@@ -9,7 +9,7 @@ from config import JOB_OFFERS_PATH, COLLECTED_JOBS_PATH
 
 LOCATION = "Paris, France"
 RESULTS_PER_QUERY = 15
-HOURS_OLD = 48  # 2 derniers jours environ
+HOURS_OLD = 24  
 
 
 SEARCH_TERMS = [

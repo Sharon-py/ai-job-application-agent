@@ -77,3 +77,15 @@ data/*.db
 data/*.db-journal
 data/*.sqlite
 data/*.sqlite3
+
+# Environment variables
+.env
+
+# Local SQLite database
+data/*.db
+data/*.db-journal
+data/*.sqlite
+data/*.sqlite3
+
+# Backup files
+*.backup
